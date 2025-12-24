@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GECA SGPA Calculator</title>
+
+  <!-- Responsive -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+
+  <!-- 🔐 SINGLE AUTH GUARD (ONLY THIS) -->
+  <script type="module" src="authgard.js"></script>
+  
+
+  <div class="container">
+
+    <h2>GECA SGPA Calculator</h2>
+
+    <label for="scheme">Select Scheme</label>
+    <select id="scheme">
+      <option value="cbc">New CBCS</option>
+      <option value="nep">NEP</option>
+    </select>
+
+    <label for="semester">Select Semester</label>
+    <select id="semester">
+      <option value="3">3rd Semester</option>
+      <option value="4">4th Semester</option>
+      <option value="5">5th Semester</option>
+      <option value="6">6th Semester</option>
+      <option value="7">7th Semester</option>
+      <option value="8">8th Semester</option>
+    </select>
+
+    <table id="subjects">
+      <tr>
+        <th>Subject</th>
+        <th>Credits</th>
+        <th>Grade</th>
+        <th>Action</th>
+      </tr>
+    </table>
+
+    <button id="add-subject">➕ Add Additional Subject</button>
+
+    <div id="results">SGPA: 0.00</div>
+
+    <a href="cgpa.html" class="nav-btn">➡ Go to CGPA Calculator</a>
+
+  </div>
+
+  <!-- SGPA LOGIC -->
+  <script src="jugal.js"></script>
+
+</body>
+</html>
