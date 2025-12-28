@@ -1,32 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>GECA SGPA Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Responsive -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="index.css">
+  <!-- Styles -->
+  <link rel="stylesheet" href="index.css" />
 </head>
-
 <body>
 
-  <!-- 🔐 SINGLE AUTH GUARD (ONLY THIS) -->
-  <script type="module" src="authgard.js"></script>
-  
+  <!-- 🎥 Background Video -->
+  <video autoplay muted loop playsinline class="bg-video">
+    <source src="Animated_Character_Video_Generation.mp4" type="video/mp4" />
+    Your browser does not support the video tag.
+  </video>
 
+  <!-- Overlay (visual only, does NOT block clicks) -->
+  <div class="bg-overlay"></div>
+
+  <!-- 🔐 Auth Guard -->
+  <script type="module" src="authgard.js"></script>
+
+  <!-- 👤 Profile Badge -->
+  <div class="profile-badge" id="profileBadge" title="Profile">
+    <span id="profileInitial">U</span>
+  </div>
+
+  <!-- 👤 Profile Panel -->
+  <div class="profile-panel hidden" id="profilePanel">
+    <div>
+      <strong id="profileName">User</strong><br />
+      <small id="profileEmail">user@email.com</small>
+    </div>
+
+    <button id="editProfileBtn">✏️ Edit Profile</button>
+    <button id="logoutBtn" class="danger">🚪 Logout</button>
+  </div>
+
+  <!-- ================= MAIN CONTENT ================= -->
   <div class="container">
 
     <h2>GECA SGPA Calculator</h2>
 
+    <!-- Scheme -->
     <label for="scheme">Select Scheme</label>
     <select id="scheme">
       <option value="cbc">New CBCS</option>
       <option value="nep">NEP</option>
     </select>
 
+    <!-- Semester -->
     <label for="semester">Select Semester</label>
     <select id="semester">
       <option value="3">3rd Semester</option>
@@ -37,25 +61,34 @@
       <option value="8">8th Semester</option>
     </select>
 
+    <!-- Subjects Table -->
     <table id="subjects">
-      <tr>
-        <th>Subject</th>
-        <th>Credits</th>
-        <th>Grade</th>
-        <th>Action</th>
-      </tr>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Credits</th>
+          <th>Grade</th>
+          <th>❌</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows injected by jugal.js -->
+      </tbody>
     </table>
 
-    <button id="add-subject">➕ Add Additional Subject</button>
+    <!-- Add Subject -->
+    <button id="add-subject">➕ Add Subject</button>
 
+    <!-- Result -->
     <div id="results">SGPA: 0.00</div>
 
-    <a href="cgpa.html" class="nav-btn">➡ Go to CGPA Calculator</a>
+    <!-- Navigation -->
+    <a href="cgpa.html" class="nav-btn">➡ Go to CGPA</a>
 
   </div>
 
-  <!-- SGPA LOGIC -->
-  <script src="jugal.js"></script>
+  <!-- App Logic -->
+  <script type="module" src="jugal.js"></script>
 
 </body>
 </html>
