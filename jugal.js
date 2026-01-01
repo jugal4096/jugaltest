@@ -1,77 +1,15 @@
-/* ================= FIREBASE ================= */
 import { auth, db } from "./firebase.js";
 import { doc, getDoc }
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { signOut }
+from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 /* ================= STATE ================= */
-let isITBranch = false;
+let currentBranch = null;
 
-/* ================= SUBJECT DATA (IT ONLY) ================= */
-const schemeSubjects = {
-  cbc3: [
-    { name: "Engineering Mathematics III", credits: 3 },
-    { name: "Discrete Mathematical Structures", credits: 3 },
-    { name: "Data Structures", credits: 3 },
-    { name: "Computer Networks", credits: 3 },
-    { name: "Object Oriented Programming", credits: 3 },
-    { name: "Digital Electronics and Microprocessors", credits: 3 },
-    { name: "Lab- Data Structures", credits: 1 },
-    { name: "Lab- Computer Networks", credits: 1 },
-    { name: "Lab- Object Oriented Programming", credits: 1 },
-    { name: "Lab- Digital Electronics and Microprocessors", credits: 1 }
-  ],
-  cbc4: [
-    { name: "Engineering Mathematics IV", credits: 4 },
-    { name: "Design and Analysis of Algorithms", credits: 3 },
-    { name: "Database Management Systems", credits: 3 },
-    { name: "Operating System", credits: 3 },
-    { name: "Internet of Things", credits: 3 },
-    { name: "Open Elective-I", credits: 3 },
-    { name: "Environmental Science", credits: 0 },
-    { name: "Lab- Design and Analysis of Algorithms", credits: 1 },
-    { name: "Lab- Database Management Systems", credits: 1 },
-    { name: "Lab- Operating System", credits: 1 },
-    { name: "Lab- Internet of Things", credits: 1 },
-    { name: "Universal Human Values II", credits: 3 }
-  ],
-  cbc5: [
-    { name: "Theory of Computation", credits: 4 },
-    { name: "Artificial Intelligence", credits: 3 },
-    { name: "Machine Learning", credits: 3 },
-    { name: "Software Engineering", credits: 3 },
-    { name: "Professional Ethics and Cyber Laws", credits: 3 },
-    { name: "Data Structures and Algorithms (OEC)", credits: 3 },
-    { name: "Lab- Machine Learning", credits: 1 },
-    { name: "Lab- Software Engineering", credits: 1 },
-    { name: "Computer Programming Lab I", credits: 2 },
-    { name: "Mini Project I", credits: 2 }
-  ],
-  cbc6: [
-    { name: "Professional Elective I", credits: 3 },
-    { name: "Professional Elective II", credits: 3 },
-    { name: "Professional Elective III", credits: 3 },
-    { name: "Business Intelligence", credits: 3 },
-    { name: "Introduction to Artificial Intelligence", credits: 3 },
-    { name: "Computer Programming Lab II", credits: 1 },
-    { name: "Lab- Professional Elective I", credits: 1 },
-    { name: "Lab- Professional Elective II", credits: 1 },
-    { name: "Mini Project II", credits: 2 }
-  ],
-  cbc7: [
-    { name: "Advanced Java", credits: 1 },
-    { name: "Advanced Java Lab", credits: 2 },
-    { name: "Professional Elective IV", credits: 3 },
-    { name: "Professional Elective V", credits: 3 },
-    { name: "Lab- Professional Elective IV", credits: 1 },
-    { name: "HSMC IV", credits: 3 },
-    { name: "Introduction to Machine Learning", credits: 3 },
-    { name: "Open Elective V", credits: 3 },
-    { name: "Project I", credits: 6 }
-  ],
-  cbc8: [
-    { name: "Project II / Internship / On Job Training", credits: 6 }
-  ]
-};
+/* ================= GOOGLE SHEET ================= */
+const SHEET_CSV_URL =
+"https://docs.google.com/spreadsheets/d/e/2PACX-1vQbu6XLHVIEHULa1bRWT87qvcTVXsdpqDwHFgKq7R-mRRjg24EVXOrGlX1C2ZoBURCj18Qp5GkjHHQ4/pub?output=csv";
 
 /* ================= CREATE ROW ================= */
 function createRow(sub) {
@@ -100,16 +38,45 @@ function createRow(sub) {
 
 /* ================= LOAD SUBJECTS ================= */
 function loadSubjects() {
-  if (!isITBranch) return;
+  if (!currentBranch) return;
 
-  const scheme = schemeSelect.value;
+  const scheme = schemeSelect.value.toUpperCase();
   const semester = semesterSelect.value;
   const tbody = document.querySelector("#subjects tbody");
 
   tbody.innerHTML = "";
-  schemeSubjects[scheme + semester]?.forEach(createRow);
 
-  calculateSGPA();
+  Papa.parse(SHEET_CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      let found = false;
+
+      results.data.forEach(row => {
+        if (
+          row.Branch?.trim().toUpperCase() === currentBranch &&
+          row.Scheme?.trim().toUpperCase() === scheme &&
+          String(row.semester).trim() === semester
+        ) {
+          found = true;
+          createRow({
+            name: row.Subject,
+            credits: Number(row.credits)
+          });
+        }
+      });
+
+      // CBCS exists only for IT → graceful UX
+      if (!found) {
+        if (scheme === "CBCS" && currentBranch !== "IT") {
+          alert("CBCS scheme is currently available only for IT branch.");
+        }
+      }
+
+      calculateSGPA();
+    }
+  });
 }
 
 /* ================= ADD MANUAL SUBJECT ================= */
@@ -144,10 +111,9 @@ function calculateSGPA() {
   let totalPoints = 0;
 
   document.querySelectorAll("#subjects tbody tr").forEach(row => {
-    const creditCell = row.children[1];
     const credits = parseFloat(
-      creditCell.querySelector("input")?.value ||
-      creditCell.textContent
+      row.children[1].querySelector("input")?.value ||
+      row.children[1].textContent
     );
     const grade = parseFloat(row.querySelector("select")?.value);
 
@@ -190,54 +156,30 @@ auth.onAuthStateChanged(async user => {
   const snap = await getDoc(doc(db, "users", user.uid));
   if (!snap.exists()) return;
 
-  const branch = snap.data().branch;
-
-  if (branch !== "IT") {
-    isITBranch = false;
-    schemeSelect.disabled = true;
-    semesterSelect.disabled = true;
-
-    if (!sessionStorage.getItem("branchNoticeShown")) {
-      alert(
-        "Your branch subjects will be introduced soon.\n\n" +
-        "Please add subjects manually for now."
-      );
-      sessionStorage.setItem("branchNoticeShown", "true");
-    }
-  } else {
-    isITBranch = true;
-    schemeSelect.disabled = false;
-    semesterSelect.disabled = false;
-    loadSubjects();
-  }
+  currentBranch = snap.data().branch?.trim().toUpperCase();
+  loadSubjects();
 });
-/* ================= PROFILE BADGE LOGIC ================= */
+
+/* ================= PROFILE PANEL ================= */
 const profileBadge = document.getElementById("profileBadge");
 const profilePanel = document.getElementById("profilePanel");
 const logoutBtn = document.getElementById("logoutBtn");
 const editProfileBtn = document.getElementById("editProfileBtn");
 
-/* Toggle panel on badge click */
-profileBadge.addEventListener("click", (e) => {
-  e.stopPropagation(); // prevent immediate close
+profileBadge.addEventListener("click", e => {
+  e.stopPropagation();
   profilePanel.classList.toggle("hidden");
 });
 
-/* Close panel when clicking outside */
 document.addEventListener("click", () => {
   profilePanel.classList.add("hidden");
 });
-
-/* ================= LOGOUT ================= */
-import { signOut } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   window.location.replace("login.html");
 });
 
-/* ================= EDIT PROFILE ================= */
 editProfileBtn.addEventListener("click", () => {
   window.location.href = "form.html";
 });
