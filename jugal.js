@@ -1,15 +1,24 @@
+/* ================= FIREBASE ================= */
 import { auth, db } from "./firebase.js";
 import { doc, getDoc }
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { signOut }
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-/* ================= STATE ================= */
-let currentBranch = null;
-
 /* ================= GOOGLE SHEET ================= */
 const SHEET_CSV_URL =
-"https://docs.google.com/spreadsheets/d/e/2PACX-1vQbu6XLHVIEHULa1bRWT87qvcTVXsdpqDwHFgKq7R-mRRjg24EVXOrGlX1C2ZoBURCj18Qp5GkjHHQ4/pub?output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQbu6XLHVIEHULa1bRWT87qvcTVXsdpqDwHFgKq7R-mRRjg24EVXOrGlX1C2ZoBURCj18Qp5GkjHHQ4/pub?output=csv";
+
+/* ================= STATE ================= */
+let currentBranch = null;
+let sheetCache = null; // ⏩ performance fix
+
+/* ================= HELPERS ================= */
+function normalize(value) {
+  return String(value || "")
+    .replace(/\s+/g, "") // remove ALL spaces (fixes CSE issue)
+    .toUpperCase();
+}
 
 /* ================= CREATE ROW ================= */
 function createRow(sub) {
@@ -36,47 +45,66 @@ function createRow(sub) {
   document.querySelector("#subjects tbody").appendChild(tr);
 }
 
+/* ================= LOAD SHEET ONCE ================= */
+function loadSheetOnce() {
+  return new Promise((resolve) => {
+    if (sheetCache) {
+      resolve(sheetCache);
+      return;
+    }
+
+    Papa.parse(SHEET_CSV_URL, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        sheetCache = results.data;
+        resolve(sheetCache);
+      }
+    });
+  });
+}
+
 /* ================= LOAD SUBJECTS ================= */
-function loadSubjects() {
+async function loadSubjects() {
   if (!currentBranch) return;
 
-  const scheme = schemeSelect.value.toUpperCase();
+  const scheme = schemeSelect.value.trim().toUpperCase();
   const semester = semesterSelect.value;
   const tbody = document.querySelector("#subjects tbody");
 
+  // 🔒 Always reset first (prevents mixing)
   tbody.innerHTML = "";
 
-  Papa.parse(SHEET_CSV_URL, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: (results) => {
-      let found = false;
+  // ❌ OLD CBCS → manual only
+  if (scheme === "OLD CBCS") {
+    calculateSGPA();
+    return;
+  }
 
-      results.data.forEach(row => {
-        if (
-          row.Branch?.trim().toUpperCase() === currentBranch &&
-          row.Scheme?.trim().toUpperCase() === scheme &&
-          String(row.semester).trim() === semester
-        ) {
-          found = true;
-          createRow({
-            name: row.Subject,
-            credits: Number(row.credits)
-          });
-        }
+  // ❌ NEW CBCS → auto only if data exists (IT currently)
+  if (scheme === "NEW CBCS" && currentBranch !== "IT") {
+    calculateSGPA();
+    return;
+  }
+
+  // ✅ NEP (all branches) OR NEW CBCS (IT)
+  const data = await loadSheetOnce();
+
+  data.forEach(row => {
+    if (
+      normalize(row.Branch) === normalize(currentBranch) &&
+      normalize(row.Scheme) === normalize(scheme) &&
+      String(row.semester).trim() === semester
+    ) {
+      createRow({
+        name: row.Subject,
+        credits: Number(row.credits)
       });
-
-      // CBCS exists only for IT → graceful UX
-      if (!found) {
-        if (scheme === "CBCS" && currentBranch !== "IT") {
-          alert("CBCS scheme is currently available only for IT branch.");
-        }
-      }
-
-      calculateSGPA();
     }
   });
+
+  calculateSGPA();
 }
 
 /* ================= ADD MANUAL SUBJECT ================= */
@@ -156,7 +184,7 @@ auth.onAuthStateChanged(async user => {
   const snap = await getDoc(doc(db, "users", user.uid));
   if (!snap.exists()) return;
 
-  currentBranch = snap.data().branch?.trim().toUpperCase();
+  currentBranch = snap.data().branch;
   loadSubjects();
 });
 
